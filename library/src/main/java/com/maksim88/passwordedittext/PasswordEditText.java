@@ -1,26 +1,29 @@
+
 package com.maksim88.passwordedittext;
 
 import android.content.Context;
-import android.content.res.Configuration;
-import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.annotation.DrawableRes;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.AppCompatEditText;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.view.Display;
 import android.view.MotionEvent;
-import android.view.View;
+import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 
-/**
- * Created by maksim on 15.01.16. 
+
+        /**
+ * Created by maksim on 15.01.16 
  */
 public class PasswordEditText extends AppCompatEditText {
 
@@ -30,17 +33,15 @@ public class PasswordEditText extends AppCompatEditText {
     @SuppressWarnings("FieldCanBeLocal")
     private static int EXTRA_TAPPABLE_AREA = 50;
 
-    @DrawableRes
-    private int showPwIcon = R.drawable.ic_visibility_24dp;
 
-    @DrawableRes
-    private int hidePwIcon = R.drawable.ic_visibility_off_24dp;
+    private Drawable visible;
+
+    private Drawable invisible;
 
     private boolean showingPasswordIcon;
 
-    private Drawable drawableSide;
+    private Drawable drawableRight;
 
-    private boolean isRTL;
 
     public PasswordEditText(Context context) {
         this(context, null);
@@ -57,19 +58,21 @@ public class PasswordEditText extends AppCompatEditText {
     }
 
     public void initFields(AttributeSet attrs, int defStyleAttr) {
-        if (attrs != null) {
-            TypedArray styledAttributes = getContext().getTheme().obtainStyledAttributes(attrs, R.styleable.PasswordEditText, defStyleAttr, 0);
-            try {
-                showPwIcon = styledAttributes.getResourceId(R.styleable.PasswordEditText_pet_iconShow, showPwIcon);
-                hidePwIcon = styledAttributes.getResourceId(R.styleable.PasswordEditText_pet_iconHide, hidePwIcon);
-            } finally {
-                styledAttributes.recycle();
-            }
-        }
+
+        visible=resize(ContextCompat.getDrawable(getContext(), R.drawable.visible));
+
+        invisible=resize(ContextCompat.getDrawable(getContext(), R.drawable.invisible));
+
+
+
+
+
+
+
+
+
         setInputType(EditorInfo.TYPE_CLASS_TEXT | EditorInfo.TYPE_TEXT_VARIATION_PASSWORD);
         setTypeface(Typeface.DEFAULT);
-
-        isRTL = isRTLLanguage();
 
         addTextChangedListener(new TextWatcher() {
             @Override
@@ -96,16 +99,6 @@ public class PasswordEditText extends AppCompatEditText {
         });
     }
 
-    private boolean isRTLLanguage() {
-        //TODO investigate why ViewUtils.isLayoutRtl(this) not working as intended
-        // as getLayoutDirection was introduced in API 17, under 17 we default to LTR
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1){
-            return false;
-        }
-        Configuration config = getResources().getConfiguration();
-        return config.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
-    }
-
     @Override
     public Parcelable onSaveInstanceState() {
         Parcelable superState = super.onSaveInstanceState();
@@ -123,14 +116,13 @@ public class PasswordEditText extends AppCompatEditText {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (drawableSide == null) {
+        if (drawableRight == null) {
             return super.onTouchEvent(event);
         }
-        final Rect bounds = drawableSide.getBounds();
+        final Rect bounds = drawableRight.getBounds();
         final int x = (int) event.getX();
-        int iconXRect = isRTL? getLeft() + bounds.width() + EXTRA_TAPPABLE_AREA :
-                getRight() - bounds.width() - EXTRA_TAPPABLE_AREA;
-        if (isRTL? x<= iconXRect : x >= iconXRect) {
+        int rightCoord = getRight() - bounds.width() - EXTRA_TAPPABLE_AREA;
+        if (x >= rightCoord) {
             togglePasswordIconVisibility();
             event.setAction(MotionEvent.ACTION_CANCEL);
             return false;
@@ -142,16 +134,52 @@ public class PasswordEditText extends AppCompatEditText {
     private void showPasswordVisibilityIndicator(boolean shouldShowIcon) {
         if (shouldShowIcon) {
             Drawable drawable = showingPasswordIcon ?
-                    ContextCompat.getDrawable(getContext(), hidePwIcon):
-                    ContextCompat.getDrawable(getContext(), showPwIcon);
+                    invisible:
+                    visible;
 
-            setCompoundDrawablesWithIntrinsicBounds(isRTL? drawable : null, null, isRTL? null : drawable, null);
-            drawableSide = drawable;
+            setCompoundDrawablesWithIntrinsicBounds(null, null, drawable, null);
+
+            drawableRight=drawable;
         } else {
             // reset drawable
             setCompoundDrawables(null, null, null, null);
-            drawableSide = null;
+            drawableRight = null;
         }
+    }
+
+    private Drawable resize(Drawable image) {
+
+        int heightForScale=0;
+
+        if (android.os.Build.VERSION.SDK_INT >= 13){
+
+            WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+            Display display = wm.getDefaultDisplay();
+            Point size = new Point();
+            display.getSize(size);
+            int width = size.x;
+            int height = size.y;
+
+            Log.d("SIZEE",width+"");
+            Log.d("SIZEE",height+"");
+
+            heightForScale=height/16;
+
+        }else{
+            Display display = ((WindowManager)getContext().getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+
+            Log.d("SIZEE",display.getHeight()+"");
+            Log.d("SIZEE",display.getWidth()+"");
+
+            heightForScale=display.getHeight()/16;
+
+
+        }
+
+
+        Bitmap b = ((BitmapDrawable)image).getBitmap();
+        Bitmap bitmapResized = Bitmap.createScaledBitmap(b, heightForScale, heightForScale, false);
+        return new BitmapDrawable(getResources(), bitmapResized);
     }
 
     /**
